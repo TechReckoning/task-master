@@ -1,24 +1,160 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { CheckSquare, ListBullets, Tag, Warning, Minus, Clock, CalendarDots, CalendarX } from "@phosphor-icons/react"
+import { CheckSquare, ListBullets, Tag, Warning, Minus, Clock, CalendarDots, CalendarX, Bell } from "@phosphor-icons/react"
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core"
 import { arrayMove, SortableContext, verticalListSortingStrategy, sortableKeyboardCoordinates } from "@dnd-kit/sortable"
 import { useKV } from "@github/spark/hooks"
-import { Task, Category, Priority } from "@/lib/types"
+import { Task, Category, Priority, ReminderType, Reminder } from "@/lib/types"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { Toaster } from "@/components/ui/sonner"
 import TaskItem from "@/components/TaskItem"
 import AddTaskForm from "@/components/AddTaskForm"
 import CategoryManager from "@/components/CategoryManager"
-import { isOverdue } from "@/lib/utils"
+import { isOverdue, calculateReminderTime, formatReminderTime } from "@/lib/utils"
 import { toast } from "sonner"
 
 function App() {
   const [tasks, setTasks] = useKV<Task[]>("tasks", [])
   const [categories, setCategories] = useKV<Category[]>("categories", [])
   const [activeFilter, setActiveFilter] = useState<string>("all")
+  const [reminders, setReminders] = useKV<Reminder[]>("reminders", [])
+  const [reminderPermission, setReminderPermission] = useKV<string>("reminder-permission", "default")
+
+  // Request notification permission
+  const requestNotificationPermission = useCallback(async () => {
+    if ('Notification' in window) {
+      const permission = await Notification.requestPermission()
+      setReminderPermission(permission)
+      if (permission === 'granted') {
+        toast.success("Notifications enabled! You'll receive reminders for your tasks.")
+      }
+      return permission === 'granted'
+    }
+    return false
+  }, [setReminderPermission])
+
+  // Create or update reminder for a task
+  const createReminder = useCallback((task: Task, reminderType: ReminderType) => {
+    if (!task.dueDate || reminderType === 'none') {
+      // Remove existing reminder if any
+      setReminders(current => current.filter(r => r.taskId !== task.id))
+      return
+    }
+
+    const reminderTime = calculateReminderTime(task.dueDate, reminderType)
+    const newReminder: Reminder = {
+      id: crypto.randomUUID(),
+      taskId: task.id,
+      reminderTime,
+      type: reminderType,
+      triggered: false
+    }
+
+    setReminders(current => {
+      // Remove any existing reminder for this task
+      const filtered = current.filter(r => r.taskId !== task.id)
+      return [...filtered, newReminder]
+    })
+  }, [setReminders])
+
+  // Show notification for a reminder
+  const showNotification = useCallback((task: Task, reminder: Reminder) => {
+    if (reminderPermission === 'granted' && 'Notification' in window) {
+      const notification = new Notification(`Task Reminder: ${task.title}`, {
+        body: task.dueDate ? `Due ${formatReminderTime(task.dueDate)}` : 'No due date set',
+        icon: '/favicon.ico',
+        tag: `task-${task.id}`,
+        requireInteraction: true
+      })
+
+      notification.onclick = () => {
+        window.focus()
+        notification.close()
+      }
+
+      // Auto-close after 10 seconds
+      setTimeout(() => notification.close(), 10000)
+    }
+
+    // Also show toast notification
+    toast(`⏰ Task Reminder: ${task.title}`, {
+      description: task.dueDate ? `Due ${formatReminderTime(task.dueDate)}` : 'No due date set',
+      duration: 10000,
+      action: {
+        label: 'Snooze 15min',
+        onClick: () => {
+          const snoozeUntil = Date.now() + (15 * 60 * 1000)
+          setReminders(current =>
+            current.map(r =>
+              r.id === reminder.id
+                ? { ...r, snoozedUntil: snoozeUntil, triggered: false }
+                : r
+            )
+          )
+          toast.success(`Reminder snoozed for 15 minutes`)
+        }
+      }
+    })
+  }, [reminderPermission, setReminders])
+
+  // Check for due reminders
+  const checkReminders = useCallback(() => {
+    const now = Date.now()
+    
+    reminders.forEach(reminder => {
+      // Skip if already triggered or snoozed
+      if (reminder.triggered || (reminder.snoozedUntil && reminder.snoozedUntil > now)) {
+        return
+      }
+
+      // Skip if reminder time hasn't arrived yet
+      if (reminder.reminderTime > now) {
+        return
+      }
+
+      // Find the corresponding task
+      const task = tasks.find(t => t.id === reminder.taskId)
+      if (!task || task.completed) {
+        return
+      }
+
+      // Show notification and mark as triggered
+      showNotification(task, reminder)
+      setReminders(current =>
+        current.map(r =>
+          r.id === reminder.id ? { ...r, triggered: true } : r
+        )
+      )
+    })
+  }, [reminders, tasks, showNotification, setReminders])
+
+  // Clean up reminders for completed or deleted tasks
+  const cleanupReminders = useCallback(() => {
+    const taskIds = new Set(tasks.map(t => t.id))
+    setReminders(current =>
+      current.filter(r => {
+        const task = tasks.find(t => t.id === r.taskId)
+        return taskIds.has(r.taskId) && task && !task.completed
+      })
+    )
+  }, [tasks, setReminders])
+
+  // Set up interval to check reminders
+  useEffect(() => {
+    const interval = setInterval(() => {
+      checkReminders()
+      cleanupReminders()
+    }, 30000) // Check every 30 seconds
+
+    // Check immediately
+    checkReminders()
+    cleanupReminders()
+
+    return () => clearInterval(interval)
+  }, [checkReminders, cleanupReminders])
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -31,7 +167,7 @@ function App() {
     })
   )
 
-  const addTask = (title: string, categoryId?: string, priority: Priority = 'medium', dueDate?: number, notes?: string) => {
+  const addTask = (title: string, categoryId?: string, priority: Priority = 'medium', dueDate?: number, notes?: string, reminderType: ReminderType = 'none') => {
     const maxOrder = Math.max(...tasks.map(t => t.order || 0), 0)
     const newTask: Task = {
       id: crypto.randomUUID(),
@@ -42,10 +178,17 @@ function App() {
       order: maxOrder + 1,
       priority,
       dueDate,
-      notes
+      notes,
+      reminderType: dueDate ? reminderType : 'none'
     }
     
     setTasks(currentTasks => [...currentTasks, newTask])
+    
+    // Create reminder if needed
+    if (dueDate && reminderType !== 'none') {
+      createReminder(newTask, reminderType)
+    }
+    
     toast.success("Task added!")
   }
 
@@ -69,6 +212,10 @@ function App() {
       )
     )
     toast.success("Task updated!")
+  }
+
+  const handleReminderUpdate = (task: Task, reminderType: ReminderType) => {
+    createReminder(task, reminderType)
   }
 
   const addCategory = (name: string) => {
@@ -241,7 +388,8 @@ function App() {
       return dueDate.getTime() === today.getTime()
     }).length
     const noDueDate = tasks.filter(task => !task.dueDate).length
-    return { total, completed, pending, high, medium, low, overdue, dueToday, noDueDate }
+    const withReminders = tasks.filter(task => task.reminderType && task.reminderType !== 'none' && task.dueDate && !task.completed).length
+    return { total, completed, pending, high, medium, low, overdue, dueToday, noDueDate, withReminders }
   }, [tasks])
 
   return (
@@ -254,6 +402,21 @@ function App() {
             <h1 className="text-4xl font-bold text-foreground">TaskFlow</h1>
           </div>
           <p className="text-muted-foreground">Organize your day, one task at a time</p>
+          
+          {/* Notification permission button */}
+          {reminderPermission !== 'granted' && (
+            <div className="mt-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={requestNotificationPermission}
+                className="text-sm"
+              >
+                <Bell className="w-4 h-4 mr-2" />
+                Enable Notifications for Reminders
+              </Button>
+            </div>
+          )}
         </header>
 
         <div className="grid gap-6 md:grid-cols-6 mb-8">
@@ -278,8 +441,8 @@ function App() {
             <div className="text-sm text-muted-foreground">Due Today</div>
           </Card>
           <Card className="p-6 text-center">
-            <div className="text-2xl font-bold text-blue-600">{stats.high}</div>
-            <div className="text-sm text-muted-foreground">High Priority</div>
+            <div className="text-2xl font-bold text-purple-600">{stats.withReminders}</div>
+            <div className="text-sm text-muted-foreground">With Reminders</div>
           </Card>
         </div>
 
@@ -430,6 +593,7 @@ function App() {
                             onToggle={toggleTask}
                             onDelete={deleteTask}
                             onUpdate={updateTask}
+                            onReminderUpdate={handleReminderUpdate}
                             categories={categories}
                           />
                         ))}

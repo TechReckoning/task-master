@@ -1,20 +1,20 @@
 import { useState } from "react"
-import { CalendarDots, Plus, NotePencil } from "@phosphor-icons/react"
-import { Category, Priority } from "@/lib/types"
+import { CalendarDots, Plus, NotePencil, Bell } from "@phosphor-icons/react"
+import { Category, Priority, ReminderType } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { formatDate } from "@/lib/utils"
+import { formatDate, getReminderLabel } from "@/lib/utils"
 import MDEditor from '@uiw/react-md-editor'
 
 export default function AddTaskForm({ 
   onAdd, 
   categories 
 }: {
-  onAdd: (title: string, categoryId?: string, priority?: Priority, dueDate?: number, notes?: string) => void
+  onAdd: (title: string, categoryId?: string, priority?: Priority, dueDate?: number, notes?: string, reminderType?: ReminderType) => void
   categories: Category[]
 }) {
   const [title, setTitle] = useState("")
@@ -24,6 +24,7 @@ export default function AddTaskForm({
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
   const [notes, setNotes] = useState<string>("")
   const [isNotesOpen, setIsNotesOpen] = useState(false)
+  const [reminderType, setReminderType] = useState<ReminderType>("none")
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -33,7 +34,8 @@ export default function AddTaskForm({
         selectedCategory || undefined, 
         selectedPriority,
         dueDate?.getTime(),
-        notes.trim() || undefined
+        notes.trim() || undefined,
+        reminderType
       )
       setTitle("")
       setSelectedCategory("")
@@ -41,6 +43,7 @@ export default function AddTaskForm({
       setDueDate(undefined)
       setNotes("")
       setIsNotesOpen(false)
+      setReminderType("none")
     }
   }
 
@@ -51,6 +54,7 @@ export default function AddTaskForm({
 
   const clearDueDate = () => {
     setDueDate(undefined)
+    setReminderType("none") // Clear reminder when due date is cleared
   }
 
   return (
@@ -126,6 +130,30 @@ export default function AddTaskForm({
           </Button>
         )}
       </div>
+
+      {/* Reminder selection - only show if due date is set */}
+      {dueDate && (
+        <div className="flex gap-2 items-center">
+          <Select value={reminderType} onValueChange={(value: ReminderType) => setReminderType(value)}>
+            <SelectTrigger className="flex-1">
+              <div className="flex items-center">
+                <Bell className="mr-2 h-4 w-4" />
+                <SelectValue />
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No reminder</SelectItem>
+              <SelectItem value="15min">15 minutes before</SelectItem>
+              <SelectItem value="30min">30 minutes before</SelectItem>
+              <SelectItem value="1hour">1 hour before</SelectItem>
+              <SelectItem value="2hours">2 hours before</SelectItem>
+              <SelectItem value="1day">1 day before</SelectItem>
+              <SelectItem value="3days">3 days before</SelectItem>
+              <SelectItem value="1week">1 week before</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       <Collapsible open={isNotesOpen} onOpenChange={setIsNotesOpen}>
         <CollapsibleTrigger asChild>

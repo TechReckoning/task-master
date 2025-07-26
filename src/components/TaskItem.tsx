@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect } from "react"
 import { motion } from "framer-motion"
-import { Plus, Tag, Check, Trash2, DotsSixVertical, Warning, Minus, CalendarDots, Clock, PencilSimple, X, NotePencil, CaretDown, CaretRight } from "@phosphor-icons/react"
+import { Plus, Tag, Check, Trash2, DotsSixVertical, Warning, Minus, CalendarDots, Clock, PencilSimple, X, NotePencil, CaretDown, CaretRight, Bell } from "@phosphor-icons/react"
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { useKV } from "@github/spark/hooks"
-import { Task, Category, Priority } from "@/lib/types"
+import { Task, Category, Priority, ReminderType } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
@@ -14,16 +14,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { formatDate, isOverdue, getDaysUntilDue } from "@/lib/utils"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar"
+import { formatDate, isOverdue, getDaysUntilDue, getReminderLabel } from "@/lib/utils"
 import { toast } from "sonner"
 import MDEditor from '@uiw/react-md-editor'
 
-export default function TaskItem({ task, onToggle, onDelete, onUpdate, categories }: {
+export default function TaskItem({ task, onToggle, onDelete, onUpdate, categories, onReminderUpdate }: {
   task: Task
   onToggle: (id: string) => void
   onDelete: (id: string) => void
   onUpdate: (id: string, updates: Partial<Task>) => void
   categories: Category[]
+  onReminderUpdate?: (task: Task, reminderType: ReminderType) => void
 }) {
   const [isEditing, setIsEditing] = useState(false)
   const [editTitle, setEditTitle] = useState(task.title)
@@ -265,6 +268,12 @@ export default function TaskItem({ task, onToggle, onDelete, onUpdate, categorie
                   {dueDateInfo.text}
                 </Badge>
               )}
+              {task.reminderType && task.reminderType !== 'none' && task.dueDate && (
+                <Badge variant="outline" className="text-xs text-purple-600 border-purple-200">
+                  <Bell className="w-3 h-3 mr-1" />
+                  {getReminderLabel(task.reminderType)}
+                </Badge>
+              )}
               {task.notes && (
                 <Badge variant="outline" className="text-xs text-blue-600 border-blue-200">
                   <NotePencil className="w-3 h-3 mr-1" />
@@ -350,17 +359,210 @@ export default function TaskItem({ task, onToggle, onDelete, onUpdate, categorie
               </Button>
             )}
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onDelete(task.id)}
-            className="opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive"
-            disabled={isEditing}
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity hover:bg-accent/10 hover:text-accent"
+                  disabled={isEditing}
+                >
+                  <PencilSimple className="w-4 h-4" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Edit Task</DialogTitle>
+                </DialogHeader>
+                <TaskEditDialog 
+                  task={task} 
+                  categories={categories} 
+                  onUpdate={onUpdate}
+                  onReminderUpdate={onReminderUpdate}
+                />
+              </DialogContent>
+            </Dialog>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onDelete(task.id)}
+              className="opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive"
+              disabled={isEditing}
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
       </Card>
     </motion.div>
+  )
+}
+
+// Task edit dialog component
+function TaskEditDialog({ task, categories, onUpdate, onReminderUpdate }: {
+  task: Task
+  categories: Category[]
+  onUpdate: (id: string, updates: Partial<Task>) => void
+  onReminderUpdate?: (task: Task, reminderType: ReminderType) => void
+}) {
+  const [title, setTitle] = useState(task.title)
+  const [priority, setPriority] = useState<Priority>(task.priority || 'medium')
+  const [category, setCategory] = useState(task.category || '')
+  const [dueDate, setDueDate] = useState<Date | undefined>(
+    task.dueDate ? new Date(task.dueDate) : undefined
+  )
+  const [reminderType, setReminderType] = useState<ReminderType>(task.reminderType || 'none')
+  const [notes, setNotes] = useState(task.notes || '')
+
+  const handleSave = () => {
+    const updates: Partial<Task> = {
+      title: title.trim(),
+      priority,
+      category: category || '',
+      dueDate: dueDate?.getTime(),
+      reminderType: dueDate ? reminderType : 'none',
+      notes: notes.trim() || undefined
+    }
+
+    onUpdate(task.id, updates)
+    
+    // Update reminder if callback is provided
+    if (onReminderUpdate && dueDate) {
+      onReminderUpdate({ ...task, ...updates } as Task, reminderType)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <label className="text-sm font-medium mb-2 block">Task Title</label>
+        <Input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Task title..."
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="text-sm font-medium mb-2 block">Priority</label>
+          <Select value={priority} onValueChange={(value: Priority) => setPriority(value)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="high">High Priority</SelectItem>
+              <SelectItem value="medium">Medium Priority</SelectItem>
+              <SelectItem value="low">Low Priority</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <label className="text-sm font-medium mb-2 block">Category</label>
+          <Select value={category} onValueChange={setCategory}>
+            <SelectTrigger>
+              <SelectValue placeholder="No category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">No category</SelectItem>
+              {categories.map(cat => (
+                <SelectItem key={cat.id} value={cat.id}>
+                  {cat.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div>
+        <label className="text-sm font-medium mb-2 block">Due Date</label>
+        <div className="flex gap-2">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className="flex-1 justify-start text-left font-normal"
+              >
+                <CalendarDots className="mr-2 h-4 w-4" />
+                {dueDate ? formatDate(dueDate.getTime()) : "Set due date"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={dueDate}
+                onSelect={(date) => {
+                  setDueDate(date)
+                  if (!date) setReminderType('none')
+                }}
+                disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+          {dueDate && (
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setDueDate(undefined)
+                setReminderType('none')
+              }}
+            >
+              Clear
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {dueDate && (
+        <div>
+          <label className="text-sm font-medium mb-2 block">Reminder</label>
+          <Select value={reminderType} onValueChange={(value: ReminderType) => setReminderType(value)}>
+            <SelectTrigger>
+              <div className="flex items-center">
+                <Bell className="mr-2 h-4 w-4" />
+                <SelectValue />
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No reminder</SelectItem>
+              <SelectItem value="15min">15 minutes before</SelectItem>
+              <SelectItem value="30min">30 minutes before</SelectItem>
+              <SelectItem value="1hour">1 hour before</SelectItem>
+              <SelectItem value="2hours">2 hours before</SelectItem>
+              <SelectItem value="1day">1 day before</SelectItem>
+              <SelectItem value="3days">3 days before</SelectItem>
+              <SelectItem value="1week">1 week before</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      <div>
+        <label className="text-sm font-medium mb-2 block">Notes</label>
+        <div data-color-mode="light">
+          <MDEditor
+            value={notes}
+            onChange={(val) => setNotes(val || "")}
+            preview="edit"
+            hideToolbar={false}
+            visibleDragBar={false}
+            height={200}
+            textareaProps={{
+              placeholder: "Add detailed notes, descriptions, or instructions for this task..."
+            }}
+          />
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-2">
+        <Button onClick={handleSave}>
+          Save Changes
+        </Button>
+      </div>
+    </div>
   )
 }
