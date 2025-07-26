@@ -1,6 +1,8 @@
 import { useState } from "react"
 import { motion } from "framer-motion"
-import { Plus, Tag, Check, Trash2 } from "@phosphor-icons/react"
+import { Plus, Tag, Check, Trash2, DotsSixVertical } from "@phosphor-icons/react"
+import { useSortable } from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
 import { useKV } from "@github/spark/hooks"
 import { Task, Category } from "@/lib/types"
 import { Button } from "@/components/ui/button"
@@ -21,16 +23,41 @@ export default function TaskItem({ task, onToggle, onDelete, categories }: {
 }) {
   const category = categories.find(c => c.id === task.category)
   
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: task.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+  
   return (
     <motion.div
+      ref={setNodeRef}
+      style={style}
       layout
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, x: -100 }}
-      className="group"
+      className={`group ${isDragging ? 'z-50' : ''}`}
     >
-      <Card className="p-4 hover:shadow-md transition-all duration-200 border border-border/50">
+      <Card className={`p-4 hover:shadow-md transition-all duration-200 border border-border/50 ${
+        isDragging ? 'shadow-lg rotate-2 bg-card/95' : ''
+      }`}>
         <div className="flex items-center gap-3">
+          <div
+            {...attributes}
+            {...listeners}
+            className="cursor-grab active:cursor-grabbing p-1 -m-1 text-muted-foreground hover:text-foreground transition-colors touch-none"
+          >
+            <DotsSixVertical className="w-4 h-4" />
+          </div>
           <Checkbox
             id={`task-${task.id}`}
             checked={task.completed}

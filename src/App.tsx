@@ -1,6 +1,8 @@
 import { useState, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { CheckSquare, ListBullets, Tag } from "@phosphor-icons/react"
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core"
+import { arrayMove, SortableContext, verticalListSortingStrategy, sortableKeyboardCoordinates } from "@dnd-kit/sortable"
 import { useKV } from "@github/spark/hooks"
 import { Task, Category } from "@/lib/types"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -17,13 +19,26 @@ function App() {
   const [categories, setCategories] = useKV<Category[]>("categories", [])
   const [activeFilter, setActiveFilter] = useState<string>("all")
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
+
   const addTask = (title: string, categoryId?: string) => {
+    const maxOrder = Math.max(...tasks.map(t => t.order || 0), 0)
     const newTask: Task = {
       id: crypto.randomUUID(),
       title,
       completed: false,
       category: categoryId || "",
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      order: maxOrder + 1
     }
     
     setTasks(currentTasks => [...currentTasks, newTask])
@@ -68,8 +83,46 @@ function App() {
     toast.success("Category deleted")
   }
 
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+
+    if (over && active.id !== over.id) {
+      setTasks(currentTasks => {
+        const filteredTasks = filteredTasks_memo
+        const oldIndex = filteredTasks.findIndex(task => task.id === active.id)
+        const newIndex = filteredTasks.findIndex(task => task.id === over.id)
+        
+        if (oldIndex === -1 || newIndex === -1) return currentTasks
+        
+        const reorderedFiltered = arrayMove(filteredTasks, oldIndex, newIndex)
+        
+        // Update the order field based on new positions
+        const updatedFiltered = reorderedFiltered.map((task, index) => ({
+          ...task,
+          order: index
+        }))
+        
+        // Merge back with non-filtered tasks
+        const nonFilteredTasks = currentTasks.filter(task => 
+          !filteredTasks.some(filtered => filtered.id === task.id)
+        )
+        
+        return [...nonFilteredTasks, ...updatedFiltered]
+      })
+      
+      toast.success("Task reordered!")
+    }
+  }
+
   const filteredTasks = useMemo(() => {
-    let filtered = tasks
+  const filteredTasks_memo = useMemo(() => {
+    // Ensure all tasks have order field for backward compatibility
+    const tasksWithOrder = tasks.map((task, index) => ({
+      ...task,
+      order: task.order ?? index
+    }))
+
+    let filtered = tasksWithOrder
 
     if (activeFilter === "completed") {
       filtered = filtered.filter(task => task.completed)
@@ -80,10 +133,12 @@ function App() {
     }
 
     return filtered.sort((a, b) => {
+      // First sort by completion status
       if (a.completed !== b.completed) {
         return a.completed ? 1 : -1
       }
-      return b.createdAt - a.createdAt
+      // Then by order for drag-and-drop positioning
+      return (a.order || 0) - (b.order || 0)
     })
   }, [tasks, activeFilter])
 
@@ -171,42 +226,53 @@ function App() {
             )}
 
             <TabsContent value={activeFilter} className="mt-0">
-              <div className="space-y-3">
-                <AnimatePresence mode="popLayout">
-                  {filteredTasks.length === 0 ? (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="text-center py-12"
-                    >
-                      <div className="text-muted-foreground">
-                        {tasks.length === 0 ? (
-                          <>
-                            <CheckSquare className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
-                            <p className="text-lg mb-2">No tasks yet!</p>
-                            <p className="text-sm">Add your first task above to get started.</p>
-                          </>
-                        ) : (
-                          <>
-                            <p className="text-lg mb-2">No tasks match this filter</p>
-                            <p className="text-sm">Try selecting a different category or status.</p>
-                          </>
-                        )}
-                      </div>
-                    </motion.div>
-                  ) : (
-                    filteredTasks.map(task => (
-                      <TaskItem
-                        key={task.id}
-                        task={task}
-                        onToggle={toggleTask}
-                        onDelete={deleteTask}
-                        categories={categories}
-                      />
-                    ))
-                  )}
-                </AnimatePresence>
-              </div>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <div className="space-y-3">
+                  <AnimatePresence mode="popLayout">
+                    {filteredTasks_memo.length === 0 ? (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="text-center py-12"
+                      >
+                        <div className="text-muted-foreground">
+                          {tasks.length === 0 ? (
+                            <>
+                              <CheckSquare className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
+                              <p className="text-lg mb-2">No tasks yet!</p>
+                              <p className="text-sm">Add your first task above to get started.</p>
+                            </>
+                          ) : (
+                            <>
+                              <p className="text-lg mb-2">No tasks match this filter</p>
+                              <p className="text-sm">Try selecting a different category or status.</p>
+                            </>
+                          )}
+                        </div>
+                      </motion.div>
+                    ) : (
+                      <SortableContext
+                        items={filteredTasks_memo.map(task => task.id)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        {filteredTasks_memo.map(task => (
+                          <TaskItem
+                            key={task.id}
+                            task={task}
+                            onToggle={toggleTask}
+                            onDelete={deleteTask}
+                            categories={categories}
+                          />
+                        ))}
+                      </SortableContext>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </DndContext>
             </TabsContent>
           </Tabs>
         </Card>

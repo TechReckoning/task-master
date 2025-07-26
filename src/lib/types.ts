@@ -4,6 +4,7 @@ export interface Task {
   completed: boolean
   category: string
   createdAt: number
+  order: number
 }
 
 export interface Category {
