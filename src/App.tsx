@@ -114,7 +114,6 @@ function App() {
     }
   }
 
-  const filteredTasks = useMemo(() => {
   const filteredTasks_memo = useMemo(() => {
     // Ensure all tasks have order field for backward compatibility
     const tasksWithOrder = tasks.map((task, index) => ({
