@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, lazy, Suspense } from "react"
 import { CalendarDots, Plus, NotePencil, Bell } from "@phosphor-icons/react"
 import { Category, Priority, ReminderType } from "@/lib/types"
 import { Button } from "@/components/ui/button"
@@ -8,7 +8,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { formatDate, getReminderLabel } from "@/lib/utils"
-import MDEditor from '@uiw/react-md-editor'
+
+const MDEditor = lazy(() => import('@uiw/react-md-editor'))
 
 export default function AddTaskForm({ 
   onAdd, 
@@ -169,18 +170,20 @@ export default function AddTaskForm({
         </CollapsibleTrigger>
         <CollapsibleContent className="mt-2">
           <div data-color-mode="light">
-            <MDEditor
-              value={notes}
-              onChange={(val) => setNotes(val || "")}
-              preview="edit"
-              hideToolbar={false}
-              visibleDragBar={false}
-              textareaProps={{
-                placeholder: "Add detailed notes, descriptions, or instructions for this task...",
-                style: { minHeight: 120 }
-              }}
-              height={200}
-            />
+            <Suspense fallback={<div className="h-48 bg-muted rounded animate-pulse" />}>
+              <MDEditor
+                value={notes}
+                onChange={(val) => setNotes(val || "")}
+                preview="edit"
+                hideToolbar={false}
+                visibleDragBar={false}
+                textareaProps={{
+                  placeholder: "Add detailed notes, descriptions, or instructions for this task...",
+                  style: { minHeight: 120 }
+                }}
+                height={200}
+              />
+            </Suspense>
           </div>
         </CollapsibleContent>
       </Collapsible>

@@ -152,7 +152,7 @@ function App() {
     const interval = setInterval(() => {
       checkReminders()
       cleanupReminders()
-    }, 30000) // Check every 30 seconds
+    }, 60000) // Check every 60 seconds instead of 30
 
     // Check immediately
     checkReminders()

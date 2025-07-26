@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, lazy, Suspense } from "react"
 import { motion } from "framer-motion"
 import { Plus, Tag, Check, Trash2, DotsSixVertical, Warning, Minus, CalendarDots, Clock, PencilSimple, X, NotePencil, CaretDown, CaretRight, Bell } from "@phosphor-icons/react"
 import { useSortable } from "@dnd-kit/sortable"
@@ -18,7 +18,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar"
 import { formatDate, isOverdue, getDaysUntilDue, getReminderLabel } from "@/lib/utils"
 import { toast } from "sonner"
-import MDEditor from '@uiw/react-md-editor'
+
+const MDEditor = lazy(() => import('@uiw/react-md-editor'))
 
 export default function TaskItem({ task, onToggle, onDelete, onUpdate, categories, onReminderUpdate }: {
   task: Task
@@ -302,17 +303,19 @@ export default function TaskItem({ task, onToggle, onDelete, onUpdate, categorie
                   {isEditingNotes ? (
                     <div className="space-y-2">
                       <div data-color-mode="light">
-                        <MDEditor
-                          value={editNotes}
-                          onChange={(val) => setEditNotes(val || "")}
-                          preview="edit"
-                          hideToolbar={false}
-                          visibleDragBar={false}
-                          height={150}
-                          textareaProps={{
-                            placeholder: "Add detailed notes, descriptions, or instructions for this task...",
-                          }}
-                        />
+                        <Suspense fallback={<div className="h-32 bg-muted rounded animate-pulse" />}>
+                          <MDEditor
+                            value={editNotes}
+                            onChange={(val) => setEditNotes(val || "")}
+                            preview="edit"
+                            hideToolbar={false}
+                            visibleDragBar={false}
+                            height={150}
+                            textareaProps={{
+                              placeholder: "Add detailed notes, descriptions, or instructions for this task...",
+                            }}
+                          />
+                        </Suspense>
                       </div>
                       <div className="flex gap-2">
                         <Button size="sm" onClick={handleSaveNotes}>
@@ -332,7 +335,9 @@ export default function TaskItem({ task, onToggle, onDelete, onUpdate, categorie
                         className="prose prose-sm max-w-none p-3 bg-muted/20 rounded-md border cursor-pointer hover:bg-muted/30 transition-colors"
                         onClick={handleStartEditNotes}
                       >
-                        <MDEditor.Markdown source={task.notes} />
+                        <Suspense fallback={<div className="h-16 bg-muted rounded animate-pulse" />}>
+                          <MDEditor.Markdown source={task.notes} />
+                        </Suspense>
                       </div>
                       <Button
                         size="sm"
@@ -544,17 +549,19 @@ function TaskEditDialog({ task, categories, onUpdate, onReminderUpdate }: {
       <div>
         <label className="text-sm font-medium mb-2 block">Notes</label>
         <div data-color-mode="light">
-          <MDEditor
-            value={notes}
-            onChange={(val) => setNotes(val || "")}
-            preview="edit"
-            hideToolbar={false}
-            visibleDragBar={false}
-            height={200}
-            textareaProps={{
-              placeholder: "Add detailed notes, descriptions, or instructions for this task..."
-            }}
-          />
+          <Suspense fallback={<div className="h-48 bg-muted rounded animate-pulse" />}>
+            <MDEditor
+              value={notes}
+              onChange={(val) => setNotes(val || "")}
+              preview="edit"
+              hideToolbar={false}
+              visibleDragBar={false}
+              height={200}
+              textareaProps={{
+                placeholder: "Add detailed notes, descriptions, or instructions for this task..."
+              }}
+            />
+          </Suspense>
         </div>
       </div>
 
