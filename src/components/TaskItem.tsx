@@ -1,6 +1,6 @@
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import { motion } from "framer-motion"
-import { Plus, Tag, Check, Trash2, DotsSixVertical, Warning, Minus, CalendarDots, Clock } from "@phosphor-icons/react"
+import { Plus, Tag, Check, Trash2, DotsSixVertical, Warning, Minus, CalendarDots, Clock, PencilSimple, X } from "@phosphor-icons/react"
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { useKV } from "@github/spark/hooks"
@@ -16,12 +16,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { formatDate, isOverdue, getDaysUntilDue } from "@/lib/utils"
 import { toast } from "sonner"
 
-export default function TaskItem({ task, onToggle, onDelete, categories }: {
+export default function TaskItem({ task, onToggle, onDelete, onUpdate, categories }: {
   task: Task
   onToggle: (id: string) => void
   onDelete: (id: string) => void
+  onUpdate: (id: string, updates: Partial<Task>) => void
   categories: Category[]
 }) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [editTitle, setEditTitle] = useState(task.title)
+  const inputRef = useRef<HTMLInputElement>(null)
   const category = categories.find(c => c.id === task.category)
   
   const getPriorityConfig = (priority: Priority) => {
@@ -88,6 +92,41 @@ export default function TaskItem({ task, onToggle, onDelete, categories }: {
 
   const priorityConfig = getPriorityConfig(task.priority || 'medium')
   const dueDateInfo = getDueDateInfo()
+
+  // Focus input when editing starts
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [isEditing])
+
+  const handleStartEdit = () => {
+    setIsEditing(true)
+    setEditTitle(task.title)
+  }
+
+  const handleSaveEdit = () => {
+    const trimmedTitle = editTitle.trim()
+    if (trimmedTitle && trimmedTitle !== task.title) {
+      onUpdate(task.id, { title: trimmedTitle })
+    }
+    setIsEditing(false)
+    setEditTitle(task.title)
+  }
+
+  const handleCancelEdit = () => {
+    setIsEditing(false)
+    setEditTitle(task.title)
+  }
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSaveEdit()
+    } else if (e.key === 'Escape') {
+      handleCancelEdit()
+    }
+  }
   
   const {
     attributes,
@@ -134,13 +173,56 @@ export default function TaskItem({ task, onToggle, onDelete, categories }: {
             className="data-[state=checked]:bg-accent data-[state=checked]:border-accent"
           />
           <div className="flex-1 min-w-0">
-            <p className={`font-medium transition-all duration-200 ${
-              task.completed 
-                ? 'line-through text-muted-foreground' 
-                : 'text-card-foreground'
-            }`}>
-              {task.title}
-            </p>
+            {isEditing ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  ref={inputRef}
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  onKeyDown={handleKeyPress}
+                  className="text-sm font-medium border-primary/50 focus:border-primary"
+                  placeholder="Task title..."
+                />
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleSaveEdit}
+                  className="h-8 w-8 p-0 hover:bg-accent/10 hover:text-accent"
+                >
+                  <Check className="w-4 h-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleCancelEdit}
+                  className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            ) : (
+              <div className="group/title flex items-center gap-2">
+                <p 
+                  className={`font-medium transition-all duration-200 cursor-pointer flex-1 ${
+                    task.completed 
+                      ? 'line-through text-muted-foreground' 
+                      : 'text-card-foreground hover:text-primary'
+                  }`}
+                  onClick={handleStartEdit}
+                  title="Click to edit"
+                >
+                  {task.title}
+                </p>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleStartEdit}
+                  className="h-6 w-6 p-0 opacity-0 group-hover/title:opacity-100 transition-opacity hover:bg-accent/10 hover:text-accent"
+                >
+                  <PencilSimple className="w-3 h-3" />
+                </Button>
+              </div>
+            )}
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               <Badge 
                 variant="outline" 
@@ -168,6 +250,7 @@ export default function TaskItem({ task, onToggle, onDelete, categories }: {
             size="sm"
             onClick={() => onDelete(task.id)}
             className="opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive"
+            disabled={isEditing}
           >
             <Trash2 className="w-4 h-4" />
           </Button>

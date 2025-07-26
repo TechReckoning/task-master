@@ -61,6 +61,15 @@ function App() {
     toast.success("Task deleted")
   }
 
+  const updateTask = (id: string, updates: Partial<Task>) => {
+    setTasks(currentTasks =>
+      currentTasks.map(task =>
+        task.id === id ? { ...task, ...updates } : task
+      )
+    )
+    toast.success("Task updated!")
+  }
+
   const addCategory = (name: string) => {
     if (categories.some(cat => cat.name.toLowerCase() === name.toLowerCase())) {
       toast.error("Category already exists")
@@ -419,6 +428,7 @@ function App() {
                             task={task}
                             onToggle={toggleTask}
                             onDelete={deleteTask}
+                            onUpdate={updateTask}
                             categories={categories}
                           />
                         ))}
