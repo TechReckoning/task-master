@@ -102,44 +102,49 @@ function App() {
 
   // Check for due reminders
   const checkReminders = useCallback(() => {
-    const now = Date.now()
-    
-    reminders.forEach(reminder => {
-      // Skip if already triggered or snoozed
-      if (reminder.triggered || (reminder.snoozedUntil && reminder.snoozedUntil > now)) {
-        return
-      }
+    setReminders(currentReminders => {
+      const now = Date.now()
+      let hasChanges = false
+      
+      const updatedReminders = currentReminders.map(reminder => {
+        // Skip if already triggered or snoozed
+        if (reminder.triggered || (reminder.snoozedUntil && reminder.snoozedUntil > now)) {
+          return reminder
+        }
 
-      // Skip if reminder time hasn't arrived yet
-      if (reminder.reminderTime > now) {
-        return
-      }
+        // Skip if reminder time hasn't arrived yet
+        if (reminder.reminderTime > now) {
+          return reminder
+        }
 
-      // Find the corresponding task
-      const task = tasks.find(t => t.id === reminder.taskId)
-      if (!task || task.completed) {
-        return
-      }
+        // Find the corresponding task
+        const task = tasks.find(t => t.id === reminder.taskId)
+        if (!task || task.completed) {
+          return reminder
+        }
 
-      // Show notification and mark as triggered
-      showNotification(task, reminder)
-      setReminders(current =>
-        current.map(r =>
-          r.id === reminder.id ? { ...r, triggered: true } : r
-        )
-      )
+        // Show notification and mark as triggered
+        showNotification(task, reminder)
+        hasChanges = true
+        return { ...reminder, triggered: true }
+      })
+      
+      return hasChanges ? updatedReminders : currentReminders
     })
-  }, [reminders, tasks, showNotification, setReminders])
+  }, [tasks, showNotification, setReminders])
 
   // Clean up reminders for completed or deleted tasks
   const cleanupReminders = useCallback(() => {
-    const taskIds = new Set(tasks.map(t => t.id))
-    setReminders(current =>
-      current.filter(r => {
+    setReminders(currentReminders => {
+      const taskIds = new Set(tasks.map(t => t.id))
+      const filteredReminders = currentReminders.filter(r => {
         const task = tasks.find(t => t.id === r.taskId)
         return taskIds.has(r.taskId) && task && !task.completed
       })
-    )
+      
+      // Only return new array if there are changes
+      return filteredReminders.length !== currentReminders.length ? filteredReminders : currentReminders
+    })
   }, [tasks, setReminders])
 
   // Set up interval to check reminders
