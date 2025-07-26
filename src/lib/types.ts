@@ -9,6 +9,7 @@ export interface Task {
   order: number
   priority: Priority
   dueDate?: number // timestamp for due date
+  notes?: string // rich text notes/description in markdown format
 }
 
 export interface Category {

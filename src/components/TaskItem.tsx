@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react"
 import { motion } from "framer-motion"
-import { Plus, Tag, Check, Trash2, DotsSixVertical, Warning, Minus, CalendarDots, Clock, PencilSimple, X } from "@phosphor-icons/react"
+import { Plus, Tag, Check, Trash2, DotsSixVertical, Warning, Minus, CalendarDots, Clock, PencilSimple, X, NotePencil, CaretDown, CaretRight } from "@phosphor-icons/react"
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { useKV } from "@github/spark/hooks"
@@ -13,8 +13,10 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { formatDate, isOverdue, getDaysUntilDue } from "@/lib/utils"
 import { toast } from "sonner"
+import MDEditor from '@uiw/react-md-editor'
 
 export default function TaskItem({ task, onToggle, onDelete, onUpdate, categories }: {
   task: Task
@@ -25,6 +27,9 @@ export default function TaskItem({ task, onToggle, onDelete, onUpdate, categorie
 }) {
   const [isEditing, setIsEditing] = useState(false)
   const [editTitle, setEditTitle] = useState(task.title)
+  const [isNotesOpen, setIsNotesOpen] = useState(false)
+  const [isEditingNotes, setIsEditingNotes] = useState(false)
+  const [editNotes, setEditNotes] = useState(task.notes || "")
   const inputRef = useRef<HTMLInputElement>(null)
   const category = categories.find(c => c.id === task.category)
   
@@ -126,6 +131,23 @@ export default function TaskItem({ task, onToggle, onDelete, onUpdate, categorie
     } else if (e.key === 'Escape') {
       handleCancelEdit()
     }
+  }
+
+  const handleStartEditNotes = () => {
+    setIsEditingNotes(true)
+    setEditNotes(task.notes || "")
+    setIsNotesOpen(true)
+  }
+
+  const handleSaveNotes = () => {
+    onUpdate(task.id, { notes: editNotes.trim() || undefined })
+    setIsEditingNotes(false)
+    toast.success("Notes updated!")
+  }
+
+  const handleCancelEditNotes = () => {
+    setIsEditingNotes(false)
+    setEditNotes(task.notes || "")
   }
   
   const {
@@ -243,6 +265,90 @@ export default function TaskItem({ task, onToggle, onDelete, onUpdate, categorie
                   {dueDateInfo.text}
                 </Badge>
               )}
+              {task.notes && (
+                <Badge variant="outline" className="text-xs text-blue-600 border-blue-200">
+                  <NotePencil className="w-3 h-3 mr-1" />
+                  Has notes
+                </Badge>
+              )}
+            </div>
+            {task.notes && (
+              <Collapsible open={isNotesOpen} onOpenChange={setIsNotesOpen}>
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-2 h-auto p-2 text-left justify-start w-full hover:bg-accent/5"
+                  >
+                    {isNotesOpen ? (
+                      <CaretDown className="w-3 h-3 mr-1" />
+                    ) : (
+                      <CaretRight className="w-3 h-3 mr-1" />
+                    )}
+                    <NotePencil className="w-3 h-3 mr-1" />
+                    {isNotesOpen ? "Hide notes" : "Show notes"}
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-2">
+                  {isEditingNotes ? (
+                    <div className="space-y-2">
+                      <div data-color-mode="light">
+                        <MDEditor
+                          value={editNotes}
+                          onChange={(val) => setEditNotes(val || "")}
+                          preview="edit"
+                          hideToolbar={false}
+                          visibleDragBar={false}
+                          height={150}
+                          textareaProps={{
+                            placeholder: "Add detailed notes, descriptions, or instructions for this task...",
+                          }}
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={handleSaveNotes}>
+                          <Check className="w-3 h-3 mr-1" />
+                          Save
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={handleCancelEditNotes}>
+                          <X className="w-3 h-3 mr-1" />
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative group/notes">
+                      <div 
+                        data-color-mode="light" 
+                        className="prose prose-sm max-w-none p-3 bg-muted/20 rounded-md border cursor-pointer hover:bg-muted/30 transition-colors"
+                        onClick={handleStartEditNotes}
+                      >
+                        <MDEditor.Markdown source={task.notes} />
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={handleStartEditNotes}
+                        className="absolute top-2 right-2 h-6 w-6 p-0 opacity-0 group-hover/notes:opacity-100 transition-opacity hover:bg-accent/10 hover:text-accent"
+                      >
+                        <PencilSimple className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  )}
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+            {!task.notes && !isNotesOpen && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleStartEditNotes}
+                className="mt-2 h-auto p-2 text-left justify-start opacity-0 group-hover:opacity-100 transition-opacity hover:bg-accent/5"
+              >
+                <Plus className="w-3 h-3 mr-1" />
+                Add notes
+              </Button>
+            )}
             </div>
           </div>
           <Button

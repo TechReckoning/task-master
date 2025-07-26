@@ -1,18 +1,20 @@
 import { useState } from "react"
-import { CalendarDots, Plus } from "@phosphor-icons/react"
+import { CalendarDots, Plus, NotePencil } from "@phosphor-icons/react"
 import { Category, Priority } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { formatDate } from "@/lib/utils"
+import MDEditor from '@uiw/react-md-editor'
 
 export default function AddTaskForm({ 
   onAdd, 
   categories 
 }: {
-  onAdd: (title: string, categoryId?: string, priority?: Priority, dueDate?: number) => void
+  onAdd: (title: string, categoryId?: string, priority?: Priority, dueDate?: number, notes?: string) => void
   categories: Category[]
 }) {
   const [title, setTitle] = useState("")
@@ -20,6 +22,8 @@ export default function AddTaskForm({
   const [selectedPriority, setSelectedPriority] = useState<Priority>("medium")
   const [dueDate, setDueDate] = useState<Date | undefined>()
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
+  const [notes, setNotes] = useState<string>("")
+  const [isNotesOpen, setIsNotesOpen] = useState(false)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -28,12 +32,15 @@ export default function AddTaskForm({
         title.trim(), 
         selectedCategory || undefined, 
         selectedPriority,
-        dueDate?.getTime()
+        dueDate?.getTime(),
+        notes.trim() || undefined
       )
       setTitle("")
       setSelectedCategory("")
       setSelectedPriority("medium")
       setDueDate(undefined)
+      setNotes("")
+      setIsNotesOpen(false)
     }
   }
 
@@ -118,6 +125,39 @@ export default function AddTaskForm({
             Clear
           </Button>
         )}
+      </div>
+
+      <Collapsible open={isNotesOpen} onOpenChange={setIsNotesOpen}>
+        <CollapsibleTrigger asChild>
+          <Button
+            variant="outline"
+            type="button"
+            className="w-full justify-start text-left font-normal"
+          >
+            <NotePencil className="mr-2 h-4 w-4" />
+            {notes ? "Edit notes" : "Add notes (optional)"}
+            {notes && <span className="ml-auto text-xs text-muted-foreground">Has content</span>}
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="mt-2">
+          <div data-color-mode="light">
+            <MDEditor
+              value={notes}
+              onChange={(val) => setNotes(val || "")}
+              preview="edit"
+              hideToolbar={false}
+              visibleDragBar={false}
+              textareaProps={{
+                placeholder: "Add detailed notes, descriptions, or instructions for this task...",
+                style: { minHeight: 120 }
+              }}
+              height={200}
+            />
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+
+      <div className="flex justify-end">
         <Button type="submit" className="px-6">
           <Plus className="w-4 h-4 mr-1" />
           Add Task

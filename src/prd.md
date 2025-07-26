@@ -12,8 +12,10 @@
 ## Essential Features
 
 ### Task Management
-- **Add Tasks**: Quick task creation with optional category assignment, priority selection, and due date setting
+- **Add Tasks**: Quick task creation with optional category assignment, priority selection, due date setting, and rich text notes
 - **Inline Text Editing**: Click-to-edit task titles with immediate save/cancel options and keyboard shortcuts
+- **Rich Text Notes**: Add detailed descriptions, instructions, or notes to tasks using markdown formatting
+- **Notes Management**: Expandable/collapsible notes section with inline editing capabilities
 - **Priority Levels**: Three-tier priority system (High, Medium, Low) with visual indicators
 - **Due Date Integration**: Calendar-based due date selection with visual deadline tracking
 - **Complete Tasks**: Toggle completion status with visual feedback
@@ -53,11 +55,21 @@
 ### User Experience
 - **Enhanced Statistics Dashboard**: Overview of total, completed, pending, overdue, and due today tasks plus priority breakdowns
 - **Inline Task Editing**: Seamless click-to-edit experience with hover indicators and keyboard shortcuts (Enter to save, Escape to cancel)
+- **Rich Text Notes**: Markdown-powered notes with live preview, formatting toolbar, and collapsible display
 - **Visual Priority Indicators**: Color-coded dots, borders, and badges
 - **Due Date Visual Cues**: Distinct styling for overdue, due today, and upcoming tasks
 - **Responsive Design**: Works seamlessly on desktop and mobile
 - **Smooth Animations**: Framer Motion animations for interactions
 - **Toast Notifications**: User feedback for all actions
+
+### Notes & Rich Text System
+- **Markdown Support**: Full markdown formatting including headers, lists, links, bold, italic, code blocks
+- **Live Preview**: Real-time preview of formatted content while editing
+- **Collapsible Interface**: Notes can be expanded/collapsed to save space
+- **Inline Editing**: Click-to-edit notes with save/cancel controls
+- **Visual Indicators**: Tasks with notes display a clear "Has notes" badge
+- **Formatted Display**: Rich text rendering with proper typography and spacing
+- **Keyboard Shortcuts**: Standard markdown shortcuts for efficient editing
 
 ## Design Direction
 

@@ -31,7 +31,7 @@ function App() {
     })
   )
 
-  const addTask = (title: string, categoryId?: string, priority: Priority = 'medium', dueDate?: number) => {
+  const addTask = (title: string, categoryId?: string, priority: Priority = 'medium', dueDate?: number, notes?: string) => {
     const maxOrder = Math.max(...tasks.map(t => t.order || 0), 0)
     const newTask: Task = {
       id: crypto.randomUUID(),
@@ -41,7 +41,8 @@ function App() {
       createdAt: Date.now(),
       order: maxOrder + 1,
       priority,
-      dueDate
+      dueDate,
+      notes
     }
     
     setTasks(currentTasks => [...currentTasks, newTask])
