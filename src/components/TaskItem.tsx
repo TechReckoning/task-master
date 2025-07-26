@@ -349,7 +349,6 @@ export default function TaskItem({ task, onToggle, onDelete, onUpdate, categorie
                 Add notes
               </Button>
             )}
-            </div>
           </div>
           <Button
             variant="ghost"
