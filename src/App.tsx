@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { CheckSquare, ListBullets, Tag, Warning, Minus, Clock, CalendarDots, CalendarX, Bell } from "@phosphor-icons/react"
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core"
 import { arrayMove, SortableContext, verticalListSortingStrategy, sortableKeyboardCoordinates } from "@dnd-kit/sortable"
+import { ErrorBoundary } from "react-error-boundary"
 import { useKV } from "@github/spark/hooks"
 import { Task, Category, Priority, ReminderType, Reminder } from "@/lib/types"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -398,220 +399,229 @@ function App() {
   }, [tasks])
 
   return (
-    <div className="min-h-screen bg-background">
-      <Toaster />
-      <div className="container max-w-4xl mx-auto px-4 py-8">
-        <header className="text-center mb-8">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <CheckSquare className="w-8 h-8 text-primary" />
-            <h1 className="text-4xl font-bold text-foreground">TaskFlow</h1>
-          </div>
-          <p className="text-muted-foreground">Organize your day, one task at a time</p>
-          
-          {/* Notification permission button */}
-          {reminderPermission !== 'granted' && (
-            <div className="mt-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={requestNotificationPermission}
-                className="text-sm"
-              >
-                <Bell className="w-4 h-4 mr-2" />
-                Enable Notifications for Reminders
-              </Button>
-            </div>
-          )}
-        </header>
-
-        <div className="grid gap-6 md:grid-cols-6 mb-8">
-          <Card className="p-6 text-center">
-            <div className="text-2xl font-bold text-primary">{stats.total}</div>
-            <div className="text-sm text-muted-foreground">Total Tasks</div>
-          </Card>
-          <Card className="p-6 text-center">
-            <div className="text-2xl font-bold text-accent">{stats.completed}</div>
-            <div className="text-sm text-muted-foreground">Completed</div>
-          </Card>
-          <Card className="p-6 text-center">
-            <div className="text-2xl font-bold text-foreground">{stats.pending}</div>
-            <div className="text-sm text-muted-foreground">Pending</div>
-          </Card>
-          <Card className="p-6 text-center">
-            <div className="text-2xl font-bold text-red-600">{stats.overdue}</div>
-            <div className="text-sm text-muted-foreground">Overdue</div>
-          </Card>
-          <Card className="p-6 text-center">
-            <div className="text-2xl font-bold text-orange-600">{stats.dueToday}</div>
-            <div className="text-sm text-muted-foreground">Due Today</div>
-          </Card>
-          <Card className="p-6 text-center">
-            <div className="text-2xl font-bold text-purple-600">{stats.withReminders}</div>
-            <div className="text-sm text-muted-foreground">With Reminders</div>
-          </Card>
+    <ErrorBoundary 
+      fallback={<div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-2">Something went wrong</h2>
+          <p className="text-muted-foreground">Please refresh the page to try again.</p>
         </div>
-
-        <Card className="p-6 mb-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold flex items-center gap-2">
-              <ListBullets className="w-5 h-5" />
-              Add New Task
-            </h2>
-            <CategoryManager
-              categories={categories}
-              onAdd={addCategory}
-              onDelete={deleteCategory}
-            />
-          </div>
-          <AddTaskForm onAdd={addTask} categories={categories} />
-        </Card>
-
-        <Card className="p-6">
-          <Tabs value={activeFilter} onValueChange={setActiveFilter}>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold">Your Tasks</h2>
-              <TabsList className="grid w-fit grid-cols-3">
-                <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="pending">Pending</TabsTrigger>
-                <TabsTrigger value="completed">Completed</TabsTrigger>
-              </TabsList>
+      </div>}
+    >
+      <div className="min-h-screen bg-background">
+        <Toaster />
+        <div className="container max-w-4xl mx-auto px-4 py-8">
+          <header className="text-center mb-8">
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <CheckSquare className="w-8 h-8 text-primary" />
+              <h1 className="text-4xl font-bold text-foreground">TaskFlow</h1>
             </div>
-
-            {(categories.length > 0 || tasks.length > 0) && (
-              <div className="flex flex-wrap gap-2 mb-6">
-                <Badge
-                  variant={activeFilter === "all" ? "default" : "outline"}
-                  className="cursor-pointer transition-colors"
-                  onClick={() => setActiveFilter("all")}
+            <p className="text-muted-foreground">Organize your day, one task at a time</p>
+            
+            {/* Notification permission button */}
+            {reminderPermission !== 'granted' && (
+              <div className="mt-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={requestNotificationPermission}
+                  className="text-sm"
                 >
-                  All
-                </Badge>
-                {/* Due date filters */}
-                {stats.overdue > 0 && (
-                  <Badge
-                    variant={activeFilter === "overdue" ? "default" : "outline"}
-                    className="cursor-pointer transition-colors text-red-600 border-red-200"
-                    onClick={() => setActiveFilter("overdue")}
-                  >
-                    <Clock className="w-3 h-3 mr-1" />
-                    Overdue ({stats.overdue})
-                  </Badge>
-                )}
-                {stats.dueToday > 0 && (
-                  <Badge
-                    variant={activeFilter === "today" ? "default" : "outline"}
-                    className="cursor-pointer transition-colors text-orange-600 border-orange-200"
-                    onClick={() => setActiveFilter("today")}
-                  >
-                    <CalendarDots className="w-3 h-3 mr-1" />
-                    Due Today ({stats.dueToday})
-                  </Badge>
-                )}
-                {stats.noDueDate > 0 && (
-                  <Badge
-                    variant={activeFilter === "no-due-date" ? "default" : "outline"}
-                    className="cursor-pointer transition-colors text-gray-600 border-gray-200"
-                    onClick={() => setActiveFilter("no-due-date")}
-                  >
-                    <CalendarX className="w-3 h-3 mr-1" />
-                    No Due Date ({stats.noDueDate})
-                  </Badge>
-                )}
-                {/* Priority filters */}
-                <Badge
-                  variant={activeFilter === "high" ? "default" : "outline"}
-                  className="cursor-pointer transition-colors text-red-600 border-red-200"
-                  onClick={() => setActiveFilter("high")}
-                >
-                  <Warning className="w-3 h-3 mr-1" />
-                  High Priority
-                </Badge>
-                <Badge
-                  variant={activeFilter === "medium" ? "default" : "outline"}
-                  className="cursor-pointer transition-colors text-yellow-600 border-yellow-200"
-                  onClick={() => setActiveFilter("medium")}
-                >
-                  <Minus className="w-3 h-3 mr-1" />
-                  Medium Priority
-                </Badge>
-                <Badge
-                  variant={activeFilter === "low" ? "default" : "outline"}
-                  className="cursor-pointer transition-colors text-green-600 border-green-200"
-                  onClick={() => setActiveFilter("low")}
-                >
-                  <CheckSquare className="w-3 h-3 mr-1" />
-                  Low Priority
-                </Badge>
-                {/* Category filters */}
-                {categories.map(category => (
-                  <Badge
-                    key={category.id}
-                    variant={activeFilter === category.id ? "default" : "outline"}
-                    className="cursor-pointer transition-colors"
-                    onClick={() => setActiveFilter(category.id)}
-                  >
-                    <Tag className="w-3 h-3 mr-1" />
-                    {category.name}
-                  </Badge>
-                ))}
+                  <Bell className="w-4 h-4 mr-2" />
+                  Enable Notifications for Reminders
+                </Button>
               </div>
             )}
+          </header>
 
-            <TabsContent value={activeFilter} className="mt-0">
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
-              >
-                <div className="space-y-3">
-                  <AnimatePresence mode="popLayout">
-                    {filteredTasks_memo.length === 0 ? (
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="text-center py-12"
-                      >
-                        <div className="text-muted-foreground">
-                          {tasks.length === 0 ? (
-                            <>
-                              <CheckSquare className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
-                              <p className="text-lg mb-2">No tasks yet!</p>
-                              <p className="text-sm">Add your first task above to get started.</p>
-                            </>
-                          ) : (
-                            <>
-                              <p className="text-lg mb-2">No tasks match this filter</p>
-                              <p className="text-sm">Try selecting a different category or status.</p>
-                            </>
-                          )}
-                        </div>
-                      </motion.div>
-                    ) : (
-                      <SortableContext
-                        items={filteredTasks_memo.map(task => task.id)}
-                        strategy={verticalListSortingStrategy}
-                      >
-                        {filteredTasks_memo.map(task => (
-                          <TaskItem
-                            key={task.id}
-                            task={task}
-                            onToggle={toggleTask}
-                            onDelete={deleteTask}
-                            onUpdate={updateTask}
-                            onReminderUpdate={handleReminderUpdate}
-                            categories={categories}
-                          />
-                        ))}
-                      </SortableContext>
-                    )}
-                  </AnimatePresence>
+          <div className="grid gap-6 md:grid-cols-6 mb-8">
+            <Card className="p-6 text-center">
+              <div className="text-2xl font-bold text-primary">{stats.total}</div>
+              <div className="text-sm text-muted-foreground">Total Tasks</div>
+            </Card>
+            <Card className="p-6 text-center">
+              <div className="text-2xl font-bold text-accent">{stats.completed}</div>
+              <div className="text-sm text-muted-foreground">Completed</div>
+            </Card>
+            <Card className="p-6 text-center">
+              <div className="text-2xl font-bold text-foreground">{stats.pending}</div>
+              <div className="text-sm text-muted-foreground">Pending</div>
+            </Card>
+            <Card className="p-6 text-center">
+              <div className="text-2xl font-bold text-red-600">{stats.overdue}</div>
+              <div className="text-sm text-muted-foreground">Overdue</div>
+            </Card>
+            <Card className="p-6 text-center">
+              <div className="text-2xl font-bold text-orange-600">{stats.dueToday}</div>
+              <div className="text-sm text-muted-foreground">Due Today</div>
+            </Card>
+            <Card className="p-6 text-center">
+              <div className="text-2xl font-bold text-purple-600">{stats.withReminders}</div>
+              <div className="text-sm text-muted-foreground">With Reminders</div>
+            </Card>
+          </div>
+
+          <Card className="p-6 mb-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <ListBullets className="w-5 h-5" />
+                Add New Task
+              </h2>
+              <CategoryManager
+                categories={categories}
+                onAdd={addCategory}
+                onDelete={deleteCategory}
+              />
+            </div>
+            <AddTaskForm onAdd={addTask} categories={categories} />
+          </Card>
+
+          <Card className="p-6">
+            <Tabs value={activeFilter} onValueChange={setActiveFilter}>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold">Your Tasks</h2>
+                <TabsList className="grid w-fit grid-cols-3">
+                  <TabsTrigger value="all">All</TabsTrigger>
+                  <TabsTrigger value="pending">Pending</TabsTrigger>
+                  <TabsTrigger value="completed">Completed</TabsTrigger>
+                </TabsList>
+              </div>
+
+              {(categories.length > 0 || tasks.length > 0) && (
+                <div className="flex flex-wrap gap-2 mb-6">
+                  <Badge
+                    variant={activeFilter === "all" ? "default" : "outline"}
+                    className="cursor-pointer transition-colors"
+                    onClick={() => setActiveFilter("all")}
+                  >
+                    All
+                  </Badge>
+                  {/* Due date filters */}
+                  {stats.overdue > 0 && (
+                    <Badge
+                      variant={activeFilter === "overdue" ? "default" : "outline"}
+                      className="cursor-pointer transition-colors text-red-600 border-red-200"
+                      onClick={() => setActiveFilter("overdue")}
+                    >
+                      <Clock className="w-3 h-3 mr-1" />
+                      Overdue ({stats.overdue})
+                    </Badge>
+                  )}
+                  {stats.dueToday > 0 && (
+                    <Badge
+                      variant={activeFilter === "today" ? "default" : "outline"}
+                      className="cursor-pointer transition-colors text-orange-600 border-orange-200"
+                      onClick={() => setActiveFilter("today")}
+                    >
+                      <CalendarDots className="w-3 h-3 mr-1" />
+                      Due Today ({stats.dueToday})
+                    </Badge>
+                  )}
+                  {stats.noDueDate > 0 && (
+                    <Badge
+                      variant={activeFilter === "no-due-date" ? "default" : "outline"}
+                      className="cursor-pointer transition-colors text-gray-600 border-gray-200"
+                      onClick={() => setActiveFilter("no-due-date")}
+                    >
+                      <CalendarX className="w-3 h-3 mr-1" />
+                      No Due Date ({stats.noDueDate})
+                    </Badge>
+                  )}
+                  {/* Priority filters */}
+                  <Badge
+                    variant={activeFilter === "high" ? "default" : "outline"}
+                    className="cursor-pointer transition-colors text-red-600 border-red-200"
+                    onClick={() => setActiveFilter("high")}
+                  >
+                    <Warning className="w-3 h-3 mr-1" />
+                    High Priority
+                  </Badge>
+                  <Badge
+                    variant={activeFilter === "medium" ? "default" : "outline"}
+                    className="cursor-pointer transition-colors text-yellow-600 border-yellow-200"
+                    onClick={() => setActiveFilter("medium")}
+                  >
+                    <Minus className="w-3 h-3 mr-1" />
+                    Medium Priority
+                  </Badge>
+                  <Badge
+                    variant={activeFilter === "low" ? "default" : "outline"}
+                    className="cursor-pointer transition-colors text-green-600 border-green-200"
+                    onClick={() => setActiveFilter("low")}
+                  >
+                    <CheckSquare className="w-3 h-3 mr-1" />
+                    Low Priority
+                  </Badge>
+                  {/* Category filters */}
+                  {categories.map(category => (
+                    <Badge
+                      key={category.id}
+                      variant={activeFilter === category.id ? "default" : "outline"}
+                      className="cursor-pointer transition-colors"
+                      onClick={() => setActiveFilter(category.id)}
+                    >
+                      <Tag className="w-3 h-3 mr-1" />
+                      {category.name}
+                    </Badge>
+                  ))}
                 </div>
-              </DndContext>
-            </TabsContent>
-          </Tabs>
-        </Card>
+              )}
+
+              <TabsContent value={activeFilter} className="mt-0">
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <div className="space-y-3">
+                    <AnimatePresence mode="popLayout">
+                      {filteredTasks_memo.length === 0 ? (
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className="text-center py-12"
+                        >
+                          <div className="text-muted-foreground">
+                            {tasks.length === 0 ? (
+                              <>
+                                <CheckSquare className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
+                                <p className="text-lg mb-2">No tasks yet!</p>
+                                <p className="text-sm">Add your first task above to get started.</p>
+                              </>
+                            ) : (
+                              <>
+                                <p className="text-lg mb-2">No tasks match this filter</p>
+                                <p className="text-sm">Try selecting a different category or status.</p>
+                              </>
+                            )}
+                          </div>
+                        </motion.div>
+                      ) : (
+                        <SortableContext
+                          items={filteredTasks_memo.map(task => task.id)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          {filteredTasks_memo.map(task => (
+                            <TaskItem
+                              key={task.id}
+                              task={task}
+                              onToggle={toggleTask}
+                              onDelete={deleteTask}
+                              onUpdate={updateTask}
+                              onReminderUpdate={handleReminderUpdate}
+                              categories={categories}
+                            />
+                          ))}
+                        </SortableContext>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </DndContext>
+              </TabsContent>
+            </Tabs>
+          </Card>
+        </div>
       </div>
-    </div>
+    </ErrorBoundary>
   )
 }
 

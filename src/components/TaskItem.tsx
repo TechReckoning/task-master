@@ -3,6 +3,7 @@ import { motion } from "framer-motion"
 import { Plus, Tag, Check, Trash2, DotsSixVertical, Warning, Minus, CalendarDots, Clock, PencilSimple, X, NotePencil, CaretDown, CaretRight, Bell } from "@phosphor-icons/react"
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
+import { ErrorBoundary } from "react-error-boundary"
 import { useKV } from "@github/spark/hooks"
 import { Task, Category, Priority, ReminderType } from "@/lib/types"
 import { Button } from "@/components/ui/button"
@@ -19,7 +20,11 @@ import { Calendar } from "@/components/ui/calendar"
 import { formatDate, isOverdue, getDaysUntilDue, getReminderLabel } from "@/lib/utils"
 import { toast } from "sonner"
 
-const MDEditor = lazy(() => import('@uiw/react-md-editor'))
+const MDEditor = lazy(() => 
+  import('@uiw/react-md-editor').catch(() => ({ 
+    default: () => <div className="text-muted-foreground p-4 border rounded">Failed to load editor</div> 
+  }))
+)
 
 export default function TaskItem({ task, onToggle, onDelete, onUpdate, categories, onReminderUpdate }: {
   task: Task
@@ -304,17 +309,21 @@ export default function TaskItem({ task, onToggle, onDelete, onUpdate, categorie
                     <div className="space-y-2">
                       <div data-color-mode="light">
                         <Suspense fallback={<div className="h-32 bg-muted rounded animate-pulse" />}>
-                          <MDEditor
-                            value={editNotes}
-                            onChange={(val) => setEditNotes(val || "")}
-                            preview="edit"
-                            hideToolbar={false}
-                            visibleDragBar={false}
-                            height={150}
-                            textareaProps={{
-                              placeholder: "Add detailed notes, descriptions, or instructions for this task...",
-                            }}
-                          />
+                          <ErrorBoundary 
+                            fallback={<div className="h-32 bg-muted/50 rounded border flex items-center justify-center text-muted-foreground">Editor unavailable</div>}
+                          >
+                            <MDEditor
+                              value={editNotes}
+                              onChange={(val) => setEditNotes(val || "")}
+                              preview="edit"
+                              hideToolbar={false}
+                              visibleDragBar={false}
+                              height={150}
+                              textareaProps={{
+                                placeholder: "Add detailed notes, descriptions, or instructions for this task...",
+                              }}
+                            />
+                          </ErrorBoundary>
                         </Suspense>
                       </div>
                       <div className="flex gap-2">
@@ -336,7 +345,11 @@ export default function TaskItem({ task, onToggle, onDelete, onUpdate, categorie
                         onClick={handleStartEditNotes}
                       >
                         <Suspense fallback={<div className="h-16 bg-muted rounded animate-pulse" />}>
-                          <MDEditor.Markdown source={task.notes} />
+                          <ErrorBoundary 
+                            fallback={<div className="text-muted-foreground text-sm">Content unavailable</div>}
+                          >
+                            <MDEditor.Markdown source={task.notes} />
+                          </ErrorBoundary>
                         </Suspense>
                       </div>
                       <Button
@@ -550,17 +563,21 @@ function TaskEditDialog({ task, categories, onUpdate, onReminderUpdate }: {
         <label className="text-sm font-medium mb-2 block">Notes</label>
         <div data-color-mode="light">
           <Suspense fallback={<div className="h-48 bg-muted rounded animate-pulse" />}>
-            <MDEditor
-              value={notes}
-              onChange={(val) => setNotes(val || "")}
-              preview="edit"
-              hideToolbar={false}
-              visibleDragBar={false}
-              height={200}
-              textareaProps={{
-                placeholder: "Add detailed notes, descriptions, or instructions for this task..."
-              }}
-            />
+            <ErrorBoundary 
+              fallback={<div className="h-48 bg-muted/50 rounded border flex items-center justify-center text-muted-foreground">Editor unavailable</div>}
+            >
+              <MDEditor
+                value={notes}
+                onChange={(val) => setNotes(val || "")}
+                preview="edit"
+                hideToolbar={false}
+                visibleDragBar={false}
+                height={200}
+                textareaProps={{
+                  placeholder: "Add detailed notes, descriptions, or instructions for this task..."
+                }}
+              />
+            </ErrorBoundary>
           </Suspense>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import { useState, lazy, Suspense } from "react"
 import { CalendarDots, Plus, NotePencil, Bell } from "@phosphor-icons/react"
+import { ErrorBoundary } from "react-error-boundary"
 import { Category, Priority, ReminderType } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,7 +10,11 @@ import { Calendar } from "@/components/ui/calendar"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { formatDate, getReminderLabel } from "@/lib/utils"
 
-const MDEditor = lazy(() => import('@uiw/react-md-editor'))
+const MDEditor = lazy(() => 
+  import('@uiw/react-md-editor').catch(() => ({ 
+    default: () => <div className="text-muted-foreground p-4 border rounded">Failed to load editor</div> 
+  }))
+)
 
 export default function AddTaskForm({ 
   onAdd, 
@@ -171,18 +176,22 @@ export default function AddTaskForm({
         <CollapsibleContent className="mt-2">
           <div data-color-mode="light">
             <Suspense fallback={<div className="h-48 bg-muted rounded animate-pulse" />}>
-              <MDEditor
-                value={notes}
-                onChange={(val) => setNotes(val || "")}
-                preview="edit"
-                hideToolbar={false}
-                visibleDragBar={false}
-                textareaProps={{
-                  placeholder: "Add detailed notes, descriptions, or instructions for this task...",
-                  style: { minHeight: 120 }
-                }}
-                height={200}
-              />
+              <ErrorBoundary 
+                fallback={<div className="h-48 bg-muted/50 rounded border flex items-center justify-center text-muted-foreground">Editor unavailable</div>}
+              >
+                <MDEditor
+                  value={notes}
+                  onChange={(val) => setNotes(val || "")}
+                  preview="edit"
+                  hideToolbar={false}
+                  visibleDragBar={false}
+                  textareaProps={{
+                    placeholder: "Add detailed notes, descriptions, or instructions for this task...",
+                    style: { minHeight: 120 }
+                  }}
+                  height={200}
+                />
+              </ErrorBoundary>
             </Suspense>
           </div>
         </CollapsibleContent>
