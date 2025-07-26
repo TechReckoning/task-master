@@ -8,6 +8,7 @@ export interface Task {
   createdAt: number
   order: number
   priority: Priority
+  dueDate?: number // timestamp for due date
 }
 
 export interface Category {

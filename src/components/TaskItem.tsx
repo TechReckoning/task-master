@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { motion } from "framer-motion"
-import { Plus, Tag, Check, Trash2, DotsSixVertical, Warning, Minus } from "@phosphor-icons/react"
+import { Plus, Tag, Check, Trash2, DotsSixVertical, Warning, Minus, CalendarDots, Clock } from "@phosphor-icons/react"
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { useKV } from "@github/spark/hooks"
@@ -13,6 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { formatDate, isOverdue, getDaysUntilDue } from "@/lib/utils"
 import { toast } from "sonner"
 
 export default function TaskItem({ task, onToggle, onDelete, categories }: {
@@ -52,7 +53,41 @@ export default function TaskItem({ task, onToggle, onDelete, categories }: {
     }
   }
 
+  const getDueDateInfo = () => {
+    if (!task.dueDate) return null
+    
+    const overdue = isOverdue(task.dueDate)
+    const daysUntil = getDaysUntilDue(task.dueDate)
+    
+    if (overdue) {
+      return {
+        text: `Overdue (${Math.abs(daysUntil)} days)`,
+        className: 'text-red-600 border-red-200 bg-red-50',
+        icon: Clock
+      }
+    } else if (daysUntil === 0) {
+      return {
+        text: 'Due today',
+        className: 'text-orange-600 border-orange-200 bg-orange-50',
+        icon: CalendarDots
+      }
+    } else if (daysUntil === 1) {
+      return {
+        text: 'Due tomorrow',
+        className: 'text-yellow-600 border-yellow-200 bg-yellow-50',
+        icon: CalendarDots
+      }
+    } else {
+      return {
+        text: formatDate(task.dueDate),
+        className: 'text-blue-600 border-blue-200 bg-blue-50',
+        icon: CalendarDots
+      }
+    }
+  }
+
   const priorityConfig = getPriorityConfig(task.priority || 'medium')
+  const dueDateInfo = getDueDateInfo()
   
   const {
     attributes,
@@ -80,7 +115,9 @@ export default function TaskItem({ task, onToggle, onDelete, categories }: {
     >
       <Card className={`p-4 hover:shadow-md transition-all duration-200 border border-border/50 ${
         isDragging ? 'shadow-lg rotate-2 bg-card/95' : ''
-      } ${task.priority === 'high' ? 'border-l-4 border-l-red-500' : ''}`}>
+      } ${task.priority === 'high' ? 'border-l-4 border-l-red-500' : ''} ${
+        dueDateInfo?.text.includes('Overdue') ? 'border-l-4 border-l-red-500' : ''
+      }`}>
         <div className="flex items-center gap-3">
           <div
             {...attributes}
@@ -104,7 +141,7 @@ export default function TaskItem({ task, onToggle, onDelete, categories }: {
             }`}>
               {task.title}
             </p>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
               <Badge 
                 variant="outline" 
                 className={`text-xs ${priorityConfig.textColor} border-current`}
@@ -116,6 +153,12 @@ export default function TaskItem({ task, onToggle, onDelete, categories }: {
                 <Badge variant="secondary" className="text-xs">
                   <Tag className="w-3 h-3 mr-1" />
                   {category.name}
+                </Badge>
+              )}
+              {dueDateInfo && (
+                <Badge variant="outline" className={`text-xs ${dueDateInfo.className}`}>
+                  <dueDateInfo.icon className="w-3 h-3 mr-1" />
+                  {dueDateInfo.text}
                 </Badge>
               )}
             </div>

@@ -1,29 +1,38 @@
 # TaskFlow - Product Requirements Document
 
 ## Core Purpose & Success
-- **Mission Statement**: A beautiful, intuitive task management application that helps users organize their daily tasks with categories, priority levels, and drag-and-drop reordering.
-- **Success Indicators**: Users can quickly add, organize, complete, and manage tasks across multiple categories and priority levels with an elegant, responsive interface.
+- **Mission Statement**: A beautiful, intuitive task management application that helps users organize their daily tasks with categories, priority levels, due dates, and drag-and-drop reordering.
+- **Success Indicators**: Users can quickly add, organize, complete, and manage tasks across multiple categories, priority levels, and due dates with an elegant, responsive interface.
 - **Experience Qualities**: Clean, Efficient, Delightful
 
 ## Project Classification & Approach
 - **Complexity Level**: Light Application (multiple features with persistent state)
-- **Primary User Activity**: Creating and Managing tasks with priority-based organization and drag-and-drop reordering
+- **Primary User Activity**: Creating and Managing tasks with priority-based organization, due date tracking, and drag-and-drop reordering
 
 ## Essential Features
 
 ### Task Management
-- **Add Tasks**: Quick task creation with optional category assignment and priority selection
+- **Add Tasks**: Quick task creation with optional category assignment, priority selection, and due date setting
 - **Priority Levels**: Three-tier priority system (High, Medium, Low) with visual indicators
+- **Due Date Integration**: Calendar-based due date selection with visual deadline tracking
 - **Complete Tasks**: Toggle completion status with visual feedback
 - **Delete Tasks**: Remove unwanted tasks with confirmation
 - **Drag-and-Drop Reordering**: Intuitive task reordering within filtered views
 - **Persistent Storage**: All tasks saved between sessions using useKV
 
+### Due Date System
+- **Calendar Integration**: Built-in calendar picker for due date selection
+- **Due Date Display**: Clear visual indication of due dates on task cards
+- **Overdue Detection**: Automatic identification and highlighting of overdue tasks
+- **Due Date Filtering**: Filter tasks by overdue, due today, or no due date
+- **Smart Date Formatting**: Human-readable date formats (Today, Tomorrow, specific dates)
+- **Visual Due Date Indicators**: Color-coded badges showing due date status
+
 ### Priority System
 - **High Priority**: Red indicators, warning icons, left border accent for urgent tasks
 - **Medium Priority**: Yellow indicators, default priority for balanced workflow
 - **Low Priority**: Green indicators for less critical tasks
-- **Smart Sorting**: Tasks sorted by completion status, then priority, then custom order
+- **Smart Sorting**: Tasks sorted by completion status, overdue status, due date, then priority, then custom order
 - **Priority Filtering**: Filter tasks by specific priority levels
 
 ### Category Organization
@@ -34,14 +43,16 @@
 
 ### Filtering & Views
 - **Status Filters**: View all, pending, or completed tasks
+- **Due Date Filters**: Filter by overdue tasks, tasks due today, or tasks without due dates
 - **Priority Filters**: Filter by high, medium, or low priority tasks
 - **Category Filters**: Filter by specific categories
-- **Combined Filtering**: Mix priority and category filters for precise task views
-- **Smart Sorting**: Pending tasks appear before completed, high priority before low, with custom order preservation
+- **Combined Filtering**: Mix priority, due date, and category filters for precise task views
+- **Intelligent Sorting**: Pending tasks appear before completed, overdue tasks prioritized, then by due date, then priority, with custom order preservation
 
 ### User Experience
-- **Enhanced Statistics Dashboard**: Overview of total, completed, pending tasks plus priority breakdowns
+- **Enhanced Statistics Dashboard**: Overview of total, completed, pending, overdue, and due today tasks plus priority breakdowns
 - **Visual Priority Indicators**: Color-coded dots, borders, and badges
+- **Due Date Visual Cues**: Distinct styling for overdue, due today, and upcoming tasks
 - **Responsive Design**: Works seamlessly on desktop and mobile
 - **Smooth Animations**: Framer Motion animations for interactions
 - **Toast Notifications**: User feedback for all actions

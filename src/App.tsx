@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { CheckSquare, ListBullets, Tag, Warning, Minus } from "@phosphor-icons/react"
+import { CheckSquare, ListBullets, Tag, Warning, Minus, Clock, CalendarDots, CalendarX } from "@phosphor-icons/react"
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core"
 import { arrayMove, SortableContext, verticalListSortingStrategy, sortableKeyboardCoordinates } from "@dnd-kit/sortable"
 import { useKV } from "@github/spark/hooks"
@@ -12,6 +12,7 @@ import { Toaster } from "@/components/ui/sonner"
 import TaskItem from "@/components/TaskItem"
 import AddTaskForm from "@/components/AddTaskForm"
 import CategoryManager from "@/components/CategoryManager"
+import { isOverdue } from "@/lib/utils"
 import { toast } from "sonner"
 
 function App() {
@@ -30,7 +31,7 @@ function App() {
     })
   )
 
-  const addTask = (title: string, categoryId?: string, priority: Priority = 'medium') => {
+  const addTask = (title: string, categoryId?: string, priority: Priority = 'medium', dueDate?: number) => {
     const maxOrder = Math.max(...tasks.map(t => t.order || 0), 0)
     const newTask: Task = {
       id: crypto.randomUUID(),
@@ -39,7 +40,8 @@ function App() {
       category: categoryId || "",
       createdAt: Date.now(),
       order: maxOrder + 1,
-      priority
+      priority,
+      dueDate
     }
     
     setTasks(currentTasks => [...currentTasks, newTask])
@@ -89,7 +91,38 @@ function App() {
 
     if (over && active.id !== over.id) {
       setTasks(currentTasks => {
-        const filteredTasks = filteredTasks_memo
+        // Get the current filtered tasks for reordering
+        const tasksWithDefaults = currentTasks.map((task, index) => ({
+          ...task,
+          order: task.order ?? index,
+          priority: task.priority || 'medium' as Priority
+        }))
+
+        let filteredTasks = tasksWithDefaults
+
+        if (activeFilter === "completed") {
+          filteredTasks = filteredTasks.filter(task => task.completed)
+        } else if (activeFilter === "pending") {
+          filteredTasks = filteredTasks.filter(task => !task.completed)
+        } else if (activeFilter === "high" || activeFilter === "medium" || activeFilter === "low") {
+          filteredTasks = filteredTasks.filter(task => task.priority === activeFilter)
+        } else if (activeFilter === "overdue") {
+          filteredTasks = filteredTasks.filter(task => task.dueDate && isOverdue(task.dueDate) && !task.completed)
+        } else if (activeFilter === "today") {
+          const today = new Date()
+          today.setHours(0, 0, 0, 0)
+          filteredTasks = filteredTasks.filter(task => {
+            if (!task.dueDate) return false
+            const dueDate = new Date(task.dueDate)
+            dueDate.setHours(0, 0, 0, 0)
+            return dueDate.getTime() === today.getTime()
+          })
+        } else if (activeFilter === "no-due-date") {
+          filteredTasks = filteredTasks.filter(task => !task.dueDate)
+        } else if (activeFilter !== "all") {
+          filteredTasks = filteredTasks.filter(task => task.category === activeFilter)
+        }
+        
         const oldIndex = filteredTasks.findIndex(task => task.id === active.id)
         const newIndex = filteredTasks.findIndex(task => task.id === over.id)
         
@@ -131,6 +164,21 @@ function App() {
       filtered = filtered.filter(task => !task.completed)
     } else if (activeFilter === "high" || activeFilter === "medium" || activeFilter === "low") {
       filtered = filtered.filter(task => task.priority === activeFilter)
+    } else if (activeFilter === "overdue") {
+      filtered = filtered.filter(task => task.dueDate && isOverdue(task.dueDate) && !task.completed)
+    } else if (activeFilter === "today") {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const tomorrow = new Date(today)
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      filtered = filtered.filter(task => {
+        if (!task.dueDate) return false
+        const dueDate = new Date(task.dueDate)
+        dueDate.setHours(0, 0, 0, 0)
+        return dueDate.getTime() === today.getTime()
+      })
+    } else if (activeFilter === "no-due-date") {
+      filtered = filtered.filter(task => !task.dueDate)
     } else if (activeFilter !== "all") {
       filtered = filtered.filter(task => task.category === activeFilter)
     }
@@ -139,6 +187,20 @@ function App() {
       // First sort by completion status
       if (a.completed !== b.completed) {
         return a.completed ? 1 : -1
+      }
+      // Then by overdue status
+      const aOverdue = a.dueDate ? isOverdue(a.dueDate) : false
+      const bOverdue = b.dueDate ? isOverdue(b.dueDate) : false
+      if (aOverdue !== bOverdue) {
+        return aOverdue ? -1 : 1
+      }
+      // Then by due date (soonest first)
+      if (a.dueDate && b.dueDate) {
+        if (a.dueDate !== b.dueDate) {
+          return a.dueDate - b.dueDate
+        }
+      } else if (a.dueDate || b.dueDate) {
+        return a.dueDate ? -1 : 1
       }
       // Then by priority (high > medium > low)
       const priorityOrder = { high: 3, medium: 2, low: 1 }
@@ -157,7 +219,19 @@ function App() {
     const high = tasks.filter(task => (task.priority || 'medium') === 'high').length
     const medium = tasks.filter(task => (task.priority || 'medium') === 'medium').length
     const low = tasks.filter(task => (task.priority || 'medium') === 'low').length
-    return { total, completed, pending, high, medium, low }
+    const overdue = tasks.filter(task => task.dueDate && isOverdue(task.dueDate) && !task.completed).length
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    const dueToday = tasks.filter(task => {
+      if (!task.dueDate || task.completed) return false
+      const dueDate = new Date(task.dueDate)
+      dueDate.setHours(0, 0, 0, 0)
+      return dueDate.getTime() === today.getTime()
+    }).length
+    const noDueDate = tasks.filter(task => !task.dueDate).length
+    return { total, completed, pending, high, medium, low, overdue, dueToday, noDueDate }
   }, [tasks])
 
   return (
@@ -172,7 +246,7 @@ function App() {
           <p className="text-muted-foreground">Organize your day, one task at a time</p>
         </header>
 
-        <div className="grid gap-6 md:grid-cols-5 mb-8">
+        <div className="grid gap-6 md:grid-cols-6 mb-8">
           <Card className="p-6 text-center">
             <div className="text-2xl font-bold text-primary">{stats.total}</div>
             <div className="text-sm text-muted-foreground">Total Tasks</div>
@@ -186,12 +260,16 @@ function App() {
             <div className="text-sm text-muted-foreground">Pending</div>
           </Card>
           <Card className="p-6 text-center">
-            <div className="text-2xl font-bold text-red-600">{stats.high}</div>
-            <div className="text-sm text-muted-foreground">High Priority</div>
+            <div className="text-2xl font-bold text-red-600">{stats.overdue}</div>
+            <div className="text-sm text-muted-foreground">Overdue</div>
           </Card>
           <Card className="p-6 text-center">
-            <div className="text-2xl font-bold text-yellow-600">{stats.medium}</div>
-            <div className="text-sm text-muted-foreground">Medium Priority</div>
+            <div className="text-2xl font-bold text-orange-600">{stats.dueToday}</div>
+            <div className="text-sm text-muted-foreground">Due Today</div>
+          </Card>
+          <Card className="p-6 text-center">
+            <div className="text-2xl font-bold text-blue-600">{stats.high}</div>
+            <div className="text-sm text-muted-foreground">High Priority</div>
           </Card>
         </div>
 
@@ -230,6 +308,37 @@ function App() {
                 >
                   All
                 </Badge>
+                {/* Due date filters */}
+                {stats.overdue > 0 && (
+                  <Badge
+                    variant={activeFilter === "overdue" ? "default" : "outline"}
+                    className="cursor-pointer transition-colors text-red-600 border-red-200"
+                    onClick={() => setActiveFilter("overdue")}
+                  >
+                    <Clock className="w-3 h-3 mr-1" />
+                    Overdue ({stats.overdue})
+                  </Badge>
+                )}
+                {stats.dueToday > 0 && (
+                  <Badge
+                    variant={activeFilter === "today" ? "default" : "outline"}
+                    className="cursor-pointer transition-colors text-orange-600 border-orange-200"
+                    onClick={() => setActiveFilter("today")}
+                  >
+                    <CalendarDots className="w-3 h-3 mr-1" />
+                    Due Today ({stats.dueToday})
+                  </Badge>
+                )}
+                {stats.noDueDate > 0 && (
+                  <Badge
+                    variant={activeFilter === "no-due-date" ? "default" : "outline"}
+                    className="cursor-pointer transition-colors text-gray-600 border-gray-200"
+                    onClick={() => setActiveFilter("no-due-date")}
+                  >
+                    <CalendarX className="w-3 h-3 mr-1" />
+                    No Due Date ({stats.noDueDate})
+                  </Badge>
+                )}
                 {/* Priority filters */}
                 <Badge
                   variant={activeFilter === "high" ? "default" : "outline"}
