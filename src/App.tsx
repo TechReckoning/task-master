@@ -1,10 +1,10 @@
 import { useState, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { CheckSquare, ListBullets, Tag } from "@phosphor-icons/react"
+import { CheckSquare, ListBullets, Tag, Warning, Minus } from "@phosphor-icons/react"
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core"
 import { arrayMove, SortableContext, verticalListSortingStrategy, sortableKeyboardCoordinates } from "@dnd-kit/sortable"
 import { useKV } from "@github/spark/hooks"
-import { Task, Category } from "@/lib/types"
+import { Task, Category, Priority } from "@/lib/types"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
@@ -30,7 +30,7 @@ function App() {
     })
   )
 
-  const addTask = (title: string, categoryId?: string) => {
+  const addTask = (title: string, categoryId?: string, priority: Priority = 'medium') => {
     const maxOrder = Math.max(...tasks.map(t => t.order || 0), 0)
     const newTask: Task = {
       id: crypto.randomUUID(),
@@ -38,7 +38,8 @@ function App() {
       completed: false,
       category: categoryId || "",
       createdAt: Date.now(),
-      order: maxOrder + 1
+      order: maxOrder + 1,
+      priority
     }
     
     setTasks(currentTasks => [...currentTasks, newTask])
@@ -115,18 +116,21 @@ function App() {
   }
 
   const filteredTasks_memo = useMemo(() => {
-    // Ensure all tasks have order field for backward compatibility
-    const tasksWithOrder = tasks.map((task, index) => ({
+    // Ensure all tasks have order field and priority for backward compatibility
+    const tasksWithDefaults = tasks.map((task, index) => ({
       ...task,
-      order: task.order ?? index
+      order: task.order ?? index,
+      priority: task.priority || 'medium' as Priority
     }))
 
-    let filtered = tasksWithOrder
+    let filtered = tasksWithDefaults
 
     if (activeFilter === "completed") {
       filtered = filtered.filter(task => task.completed)
     } else if (activeFilter === "pending") {
       filtered = filtered.filter(task => !task.completed)
+    } else if (activeFilter === "high" || activeFilter === "medium" || activeFilter === "low") {
+      filtered = filtered.filter(task => task.priority === activeFilter)
     } else if (activeFilter !== "all") {
       filtered = filtered.filter(task => task.category === activeFilter)
     }
@@ -136,7 +140,12 @@ function App() {
       if (a.completed !== b.completed) {
         return a.completed ? 1 : -1
       }
-      // Then by order for drag-and-drop positioning
+      // Then by priority (high > medium > low)
+      const priorityOrder = { high: 3, medium: 2, low: 1 }
+      if (a.priority !== b.priority) {
+        return priorityOrder[b.priority] - priorityOrder[a.priority]
+      }
+      // Finally by order for drag-and-drop positioning
       return (a.order || 0) - (b.order || 0)
     })
   }, [tasks, activeFilter])
@@ -145,7 +154,10 @@ function App() {
     const total = tasks.length
     const completed = tasks.filter(task => task.completed).length
     const pending = total - completed
-    return { total, completed, pending }
+    const high = tasks.filter(task => (task.priority || 'medium') === 'high').length
+    const medium = tasks.filter(task => (task.priority || 'medium') === 'medium').length
+    const low = tasks.filter(task => (task.priority || 'medium') === 'low').length
+    return { total, completed, pending, high, medium, low }
   }, [tasks])
 
   return (
@@ -160,7 +172,7 @@ function App() {
           <p className="text-muted-foreground">Organize your day, one task at a time</p>
         </header>
 
-        <div className="grid gap-6 md:grid-cols-3 mb-8">
+        <div className="grid gap-6 md:grid-cols-5 mb-8">
           <Card className="p-6 text-center">
             <div className="text-2xl font-bold text-primary">{stats.total}</div>
             <div className="text-sm text-muted-foreground">Total Tasks</div>
@@ -172,6 +184,14 @@ function App() {
           <Card className="p-6 text-center">
             <div className="text-2xl font-bold text-foreground">{stats.pending}</div>
             <div className="text-sm text-muted-foreground">Pending</div>
+          </Card>
+          <Card className="p-6 text-center">
+            <div className="text-2xl font-bold text-red-600">{stats.high}</div>
+            <div className="text-sm text-muted-foreground">High Priority</div>
+          </Card>
+          <Card className="p-6 text-center">
+            <div className="text-2xl font-bold text-yellow-600">{stats.medium}</div>
+            <div className="text-sm text-muted-foreground">Medium Priority</div>
           </Card>
         </div>
 
@@ -201,15 +221,41 @@ function App() {
               </TabsList>
             </div>
 
-            {categories.length > 0 && (
+            {(categories.length > 0 || tasks.length > 0) && (
               <div className="flex flex-wrap gap-2 mb-6">
                 <Badge
                   variant={activeFilter === "all" ? "default" : "outline"}
                   className="cursor-pointer transition-colors"
                   onClick={() => setActiveFilter("all")}
                 >
-                  All Categories
+                  All
                 </Badge>
+                {/* Priority filters */}
+                <Badge
+                  variant={activeFilter === "high" ? "default" : "outline"}
+                  className="cursor-pointer transition-colors text-red-600 border-red-200"
+                  onClick={() => setActiveFilter("high")}
+                >
+                  <Warning className="w-3 h-3 mr-1" />
+                  High Priority
+                </Badge>
+                <Badge
+                  variant={activeFilter === "medium" ? "default" : "outline"}
+                  className="cursor-pointer transition-colors text-yellow-600 border-yellow-200"
+                  onClick={() => setActiveFilter("medium")}
+                >
+                  <Minus className="w-3 h-3 mr-1" />
+                  Medium Priority
+                </Badge>
+                <Badge
+                  variant={activeFilter === "low" ? "default" : "outline"}
+                  className="cursor-pointer transition-colors text-green-600 border-green-200"
+                  onClick={() => setActiveFilter("low")}
+                >
+                  <CheckSquare className="w-3 h-3 mr-1" />
+                  Low Priority
+                </Badge>
+                {/* Category filters */}
                 {categories.map(category => (
                   <Badge
                     key={category.id}

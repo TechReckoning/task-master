@@ -1,3 +1,5 @@
+export type Priority = 'high' | 'medium' | 'low'
+
 export interface Task {
   id: string
   title: string
@@ -5,6 +7,7 @@ export interface Task {
   category: string
   createdAt: number
   order: number
+  priority: Priority
 }
 
 export interface Category {

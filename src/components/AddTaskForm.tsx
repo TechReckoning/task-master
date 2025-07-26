@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { Plus } from "@phosphor-icons/react"
-import { Category } from "@/lib/types"
+import { Category, Priority } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -9,18 +9,20 @@ export default function AddTaskForm({
   onAdd, 
   categories 
 }: {
-  onAdd: (title: string, categoryId?: string) => void
+  onAdd: (title: string, categoryId?: string, priority?: Priority) => void
   categories: Category[]
 }) {
   const [title, setTitle] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<string>("")
+  const [selectedPriority, setSelectedPriority] = useState<Priority>("medium")
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (title.trim()) {
-      onAdd(title.trim(), selectedCategory || undefined)
+      onAdd(title.trim(), selectedCategory || undefined, selectedPriority)
       setTitle("")
       setSelectedCategory("")
+      setSelectedPriority("medium")
     }
   }
 
@@ -35,9 +37,19 @@ export default function AddTaskForm({
           className="border-input focus:border-primary transition-colors"
         />
       </div>
+      <Select value={selectedPriority} onValueChange={(value: Priority) => setSelectedPriority(value)}>
+        <SelectTrigger className="w-28">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="high">High</SelectItem>
+          <SelectItem value="medium">Medium</SelectItem>
+          <SelectItem value="low">Low</SelectItem>
+        </SelectContent>
+      </Select>
       {categories.length > 0 && (
         <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-36">
             <SelectValue placeholder="Category" />
           </SelectTrigger>
           <SelectContent>
